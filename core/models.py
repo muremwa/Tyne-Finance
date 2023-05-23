@@ -26,3 +26,35 @@ class User(AbstractUser):
 
     def __str__(self):
         return f'{self.username} ({self.email})'
+
+
+class AccountType(models.Model):
+    name = models.CharField(max_length=100)
+    code = models.CharField(max_length=20, unique=True)
+
+    def __repr__(self):
+        return f'<AccountType: {self.name}>'
+
+    def __str__(self):
+        return f'{self.name}'
+
+
+class Account(models.Model):
+    account_type = models.ForeignKey(AccountType, on_delete=models.RESTRICT)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    account_provider = models.CharField(max_length=100)
+    account_number = models.CharField(max_length=50)
+    date_added = models.DateTimeField(auto_now_add=True)
+    date_modified = models.DateTimeField(auto_now=True)
+    balance = models.IntegerField(default=0)
+    last_balance_update = models.DateTimeField(blank=True, null=True)
+    active = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = (('account_provider', 'account_number', 'account_type'),)
+
+    def __repr__(self):
+        return f'<Account: {self.user.username}>'
+
+    def __str__(self):
+        return f'Acc({self.user.username} • {self.account_number } • {self.account_type} • {self.account_provider})'
