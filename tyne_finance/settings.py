@@ -43,6 +43,7 @@ INSTALLED_APPS = [
 
     'core.apps.CoreConfig',
     'expenses.apps.ExpensesConfig',
+    'budgets.apps.BudgetsConfig',
 
     'django_cleanup.apps.CleanupConfig'
 ]
