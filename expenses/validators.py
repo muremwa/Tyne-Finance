@@ -21,7 +21,7 @@ class RenewalDateValidator(BaseValidator):
         try:
             if '-' in value:
                 if len(value) != 5:
-                    raise ValidationError('Use the correct format for annual renewal')
+                    raise ValidationError(_('Use the correct format for annual renewal'))
 
                 vals = [int(val) for val in value.split('-')]
                 for func, val in zip([self.validate_month, self.validate_day], vals):
