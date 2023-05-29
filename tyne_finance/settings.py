@@ -45,7 +45,8 @@ INSTALLED_APPS = [
     'expenses.apps.ExpensesConfig',
     'budgets.apps.BudgetsConfig',
 
-    'django_cleanup.apps.CleanupConfig'
+    'django_cleanup.apps.CleanupConfig',
+    'rest_framework'
 ]
 
 MIDDLEWARE = [
