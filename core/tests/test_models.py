@@ -41,3 +41,14 @@ class CoreModelsTestCase(TestCase):
         self.assertEquals(account.balance, 0)
         self.assertFalse(account.active)
 
+        self.assertRaises(
+            IntegrityError,
+            lambda kgs: Account.objects.create(**kgs),
+            {
+                'account_type': account_type,
+                'user': self.user,
+                'account_number': '01',
+                'account_provider': 'SAF'
+            }
+        )
+
