@@ -105,3 +105,14 @@ class UserSerializer(ModelSerializerRequiredFalsifiable):
             )
 
         return super().update(instance, validated_data)
+
+
+class AccountSerializer(ModelSerializerRequiredFalsifiable):
+    account_type = AccountTypeSerializer(required=False)
+    account_type_id = IntegerField(required=True, write_only=True)
+    user = UserSerializer(required=False)
+    user_id = IntegerField(required=True, write_only=True)
+
+    class Meta:
+        model = Account
+        exclude = ('id',)

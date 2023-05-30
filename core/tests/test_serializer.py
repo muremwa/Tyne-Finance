@@ -1,11 +1,20 @@
 from django.test import TestCase
 from django.core.exceptions import PermissionDenied
+from django.utils import timezone
 
 from core.models import Currency, User, Account, AccountType
-from core.serializers import CurrencySerializer, NoEditOrCreateModelSerializer, AccountTypeSerializer, UserSerializer
+from core.serializers import CurrencySerializer, NoEditOrCreateModelSerializer, AccountTypeSerializer, UserSerializer, \
+    AccountSerializer
 
 
 class CoreSerializerTestCase(TestCase):
+
+    @staticmethod
+    def datetime_timezone_str(datetime: timezone.datetime) -> str:
+        datetime = datetime.astimezone(
+            timezone.get_current_timezone()
+        ).strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+        return f'{datetime[:-2]}:{datetime[-2:]}'
 
     def setUp(self) -> None:
         self.currency = Currency.objects.create(country='Kenya', code='KES', symbol='Ksh')
@@ -16,6 +25,7 @@ class CoreSerializerTestCase(TestCase):
             currency=self.currency
         )
         self.account_type = AccountType.objects.create(name='Mobile Money', code='MNO')
+        self.account_type_2 = AccountType.objects.create(name='BANK', code='BNK')
         self.account = Account.objects.create(
             account_type=self.account_type,
             user=self.user,
@@ -118,3 +128,21 @@ class CoreSerializerTestCase(TestCase):
         ed_user.save()
         self.user.refresh_from_db()
         self.assertNotEquals(self.user.password, '@jimmy80')
+
+    def test_account(self):
+        self.maxDiff = None
+        acc_ser = AccountSerializer(self.account)
+        self.assertDictEqual(
+            acc_ser.data,
+            {
+                'account_type': AccountTypeSerializer(self.account_type).data,
+                'user': UserSerializer(self.user).data,
+                'account_number': '01',
+                'account_provider': 'SAF',
+                'date_added': self.datetime_timezone_str(self.account.date_added),
+                'date_modified': self.datetime_timezone_str(self.account.date_modified),
+                'balance': 0,
+                'last_balance_update': None,
+                'active': False,
+            }
+        )
