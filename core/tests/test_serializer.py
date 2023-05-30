@@ -88,6 +88,7 @@ class CoreSerializerTestCase(TestCase):
         self.assertIsNotNone(big_user_q)
         self.assertEquals(big_user_q.pk, big_user.pk)
         self.assertEquals(big_user_q.currency.pk, big_user.currency.pk)
+        self.assertNotEquals(big_user_q.password, '12345')
 
     def test_user_serializer_edit(self):
         ed_user = UserSerializer(data={
@@ -110,3 +111,10 @@ class CoreSerializerTestCase(TestCase):
         ed_user.save()
         self.user.refresh_from_db()
         self.assertEquals(self.user.username, 'jim')
+        ed_user = UserSerializer(data={
+            'password': '@jimmy80'
+        }, instance=self.user)
+        self.assertTrue(ed_user.is_valid())
+        ed_user.save()
+        self.user.refresh_from_db()
+        self.assertNotEquals(self.user.password, '@jimmy80')
