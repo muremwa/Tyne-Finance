@@ -1,30 +1,40 @@
-from typing import Dict
+from typing import Dict, OrderedDict
 
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import PermissionDenied, ObjectDoesNotExist
 from django.utils.translation import gettext_lazy as _
-from rest_framework.serializers import ModelSerializer, IntegerField, ValidationError
+from rest_framework.serializers import ModelSerializer, IntegerField, CharField, ValidationError
 from rest_framework.fields import empty
 
 from .models import User, Currency, Account, AccountType
 
 
-class NoEditOrCreateModelSerializer(ModelSerializer):
+class Cache:
+    _cache = {}
+
+
+class NoCreateModelSerializer:
 
     def create(self, validated_data):
         raise PermissionDenied(_('Cannot add'))
+
+
+class NoEditModelSerializer:
 
     def update(self, instance, validated_data):
         raise PermissionDenied(_('Cannot update'))
 
 
-class ModelSerializerRequiredFalsifiable(ModelSerializer):
+class NoEditOrCreateModelSerializer(NoCreateModelSerializer, NoEditModelSerializer, ModelSerializer):
+    pass
+
+
+class ModelSerializerRequiredFalsifiable(Cache, ModelSerializer):
     """
         If there is an instance, the fields are all marked as not required
         
         Has cache to store items
     """
-    _cache = {}
 
     def __init__(self, instance=None, data=empty, **kwargs):
         super().__init__(instance, data, **kwargs)
@@ -93,13 +103,12 @@ class UserSerializer(ModelSerializerRequiredFalsifiable):
         )
 
     def update(self, instance: User, validated_data: Dict):
-        data_keys = validated_data.keys()
-        if 'currency' in data_keys:
+        if 'currency' in validated_data:
             validated_data = self.update_validated_data_with_currency(
                 validated_data
             )
 
-        if 'password' in data_keys:
+        if 'password' in validated_data:
             validated_data = self.update_validated_data_with_password(
                 validated_data
             )
@@ -107,12 +116,65 @@ class UserSerializer(ModelSerializerRequiredFalsifiable):
         return super().update(instance, validated_data)
 
 
-class AccountSerializer(ModelSerializerRequiredFalsifiable):
-    account_type = AccountTypeSerializer(required=False)
-    account_type_id = IntegerField(required=True, write_only=True)
-    user = UserSerializer(required=False)
-    user_id = IntegerField(required=True, write_only=True)
+class AccountSerializer(Cache, NoEditModelSerializer, ModelSerializer):
+    account_type = AccountTypeSerializer(read_only=True)
+    account_type_code = CharField(max_length=10, write_only=True)
+    user = UserSerializer(read_only=True)
+    user_id = IntegerField(write_only=True)
 
     class Meta:
         model = Account
         exclude = ('id',)
+
+    def validate(self, attrs: OrderedDict):
+        validated_data: OrderedDict = super().validate(attrs)
+
+        validation_items = {
+            'user': {
+                'field': 'user_id',
+                'query': lambda: User.objects.get(pk=validated_data.get("user_id")),
+                'message': f'No user with ID {validated_data.get("user_id")}'
+            },
+            'account_type': {
+                'field': 'account_type_code',
+                'query': lambda: AccountType.objects.get(code=validated_data.get("account_type_code")),
+                'message': f'No account type code {validated_data.get("account_type_code")}'
+            }
+        }
+
+        for key, details in validation_items.items():
+            try:
+                self._cache.update({
+                    key: details['query']()
+                })
+            except ObjectDoesNotExist:
+                raise ValidationError({
+                    details['field']: _(details['message'])
+                })
+
+        # validate the uniques of the account
+        q_set = Account.objects.filter(
+            account_provider=validated_data.get('account_provider'),
+            account_number=validated_data.get('account_number'),
+            account_type__code=validated_data.get('account_type_code')
+        )
+
+        if q_set.exists():
+            raise ValidationError(_('Account not unique'))
+
+        return validated_data
+
+    def create(self, validated_data: Dict):
+        fields_replacements = {
+            'account_type_code': 'account_type',
+            'user_id': 'user'
+        }
+
+        for write_key, field_key in fields_replacements.items():
+            if write_key in validated_data and field_key in self._cache:
+                validated_data.update({
+                    field_key: self._cache.get(field_key)
+                })
+                validated_data.pop(write_key)
+
+        return super().create(validated_data)

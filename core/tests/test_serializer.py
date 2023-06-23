@@ -146,3 +146,56 @@ class CoreSerializerTestCase(TestCase):
                 'active': False,
             }
         )
+
+    def test_account_add(self):
+        # Account type code invalid
+        acc = AccountSerializer(data={
+            'account_number': '01',
+            'account_provider': 'SAF',
+            'account_type_code': 'M',
+            'user_id': self.user.pk
+        })
+        self.assertFalse(acc.is_valid())
+        self.assertListEqual(list(acc.errors.keys()), ['account_type_code'])
+
+        # user id invalid
+        acc = AccountSerializer(data={
+            'account_number': '01',
+            'account_provider': 'SAF',
+            'account_type_code': self.account_type.code,
+            'user_id': 100
+        })
+        self.assertFalse(acc.is_valid())
+        self.assertListEqual(list(acc.errors.keys()), ['user_id'])
+
+        # combination account type code and number exists
+        acc = AccountSerializer(data={
+            'account_number': '01',
+            'account_provider': 'SAF',
+            'account_type_code': self.account_type.code,
+            'user_id': 1
+        })
+        self.assertFalse(acc.is_valid())
+
+        # legit account
+        acc = AccountSerializer(data={
+            'account_number': '01',
+            'account_provider': 'AIRTEL',
+            'account_type_code': self.account_type.code,
+            'user_id': self.user.pk
+        })
+        self.assertTrue(acc.is_valid())
+
+        if acc.is_valid():
+            account = acc.save()
+            self.assertEquals(account.account_type.code, self.account_type.code)
+            self.assertEquals(account.user, self.user)
+            self.assertEquals(account.account_provider, 'AIRTEL')
+            self.assertFalse(account.active)
+
+        self.assertRaises(
+            PermissionDenied,
+            acc.update,
+            {},
+            {}
+        )
