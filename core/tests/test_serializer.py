@@ -1,20 +1,13 @@
 from django.test import TestCase
 from django.core.exceptions import PermissionDenied
-from django.utils import timezone
 
+from core.utils import DateTimeFormatter
 from core.models import Currency, User, Account, AccountType
 from core.serializers import CurrencySerializer, NoEditOrCreateModelSerializer, AccountTypeSerializer, UserSerializer, \
     AccountSerializer
 
 
-class CoreSerializerTestCase(TestCase):
-
-    @staticmethod
-    def datetime_timezone_str(datetime: timezone.datetime) -> str:
-        datetime = datetime.astimezone(
-            timezone.get_current_timezone()
-        ).strftime("%Y-%m-%dT%H:%M:%S.%f%z")
-        return f'{datetime[:-2]}:{datetime[-2:]}'
+class CoreSerializerTestCase(DateTimeFormatter, TestCase):
 
     def setUp(self) -> None:
         self.currency = Currency.objects.create(country='Kenya', code='KES', symbol='Ksh')
