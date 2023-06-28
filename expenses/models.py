@@ -58,3 +58,6 @@ class RecurringPayment(models.Model):
 
     def __str__(self):
         return f'Payment({"annual" if self.is_annual else "monthly"} • {self.amount + self.transaction_charge})'
+
+
+# TODO: Add charges MODEL to keep track of charges made to accounts.
