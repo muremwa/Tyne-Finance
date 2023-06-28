@@ -104,3 +104,29 @@ class ExpenseTestCase(DateTimeFormatter, TestCase):
         self.assertTrue(exp.is_valid())
         expense = exp.save()
         self.assertEquals(expense.account, self.account_2)
+
+    def test_expense_serializer_create(self):
+        exp = ExpenseSerializer(data={
+            'date_occurred': self.future_date(3).strftime('%Y-%m-%d'),
+            'narration': 'test',
+            'amount': 3000,
+            'planned': True,
+            'account_id': 100
+        })
+        self.assertFalse(exp.is_valid())
+        self.assertListEqual(['account_id', 'date_occurred'], list(exp.errors.keys()))
+
+        exp = ExpenseSerializer(data={
+            'date_occurred': self.past_date(3).strftime('%Y-%m-%d'),
+            'narration': 'test',
+            'amount': 3000,
+            'planned': True,
+            'account_id': self.account.pk
+        })
+        self.assertTrue(exp.is_valid())
+        expense = exp.save()
+        self.assertIsNotNone(expense)
+        self.assertEquals(expense.date_occurred, self.past_date(3).date())
+        self.assertEquals(expense.narration, 'test')
+        self.assertEquals(expense.amount, 3000)
+        self.assertTrue(self.account.expense_set.filter(pk=expense.pk).exists())

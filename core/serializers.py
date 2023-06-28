@@ -78,6 +78,7 @@ class UserSerializer(ModelSerializerRequiredFalsifiable):
             })
         except ObjectDoesNotExist:
             raise ValidationError(_(f'No currency with id "{value}"'))
+        return value
 
     def update_validated_data_with_currency(self, validated_data: Dict):
         if currency := self._cache.get('currency'):
