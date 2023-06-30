@@ -3,8 +3,8 @@ from django.test import TestCase
 from core.models import Currency, User, Account, AccountType
 from core.serializers import AccountTypeSerializer, UserSerializer
 from core.utils import DateTimeFormatter
-from expenses.models import UsageTag, Expense
-from expenses.serializers import UsageTagSerializer, ExpenseSerializer
+from expenses.models import UsageTag, Expense, RecurringPayment
+from expenses.serializers import UsageTagSerializer, ExpenseSerializer, PaymentSerializer
 
 
 class ExpenseTestCase(DateTimeFormatter, TestCase):
@@ -14,6 +14,11 @@ class ExpenseTestCase(DateTimeFormatter, TestCase):
         self.user = User.objects.create(
             username='fin',
             email='tyne@tfinance.io',
+            currency=self.currency
+        )
+        self.user_2 = User.objects.create(
+            username='gin',
+            email='gin@tfinance.io',
             currency=self.currency
         )
         self.account_type = AccountType.objects.create(name='Mobile Money', code='MNO')
@@ -38,6 +43,14 @@ class ExpenseTestCase(DateTimeFormatter, TestCase):
             date_occurred='2020-03-23'
         )
         self.expense.tags.add(self.tag)
+        self.payment = RecurringPayment.objects.create(
+            user=self.user,
+            narration='landlord',
+            amount=500,
+            start_date='2020-01-06',
+            renewal_date='10',
+        )
+        self.payment.tags.add(self.tag)
 
     def test_usage_tag(self):
         self.assertDictEqual(
@@ -130,3 +143,64 @@ class ExpenseTestCase(DateTimeFormatter, TestCase):
         self.assertEquals(expense.narration, 'test')
         self.assertEquals(expense.amount, 3000)
         self.assertTrue(self.account.expense_set.filter(pk=expense.pk).exists())
+
+    def test_payment_serializer(self):
+        self.assertDictEqual(
+            PaymentSerializer(instance=self.payment).data,
+            {
+                'id': self.payment.pk,
+                'tags': [{'title': 'Rent', 'code': 'RNT'}],
+                'user': {
+                    'username': self.user.username,
+                    'first_name': self.user.first_name,
+                    'last_name': self.user.last_name,
+                    'email': self.user.email,
+                    'is_active': self.user.is_active,
+                    'user_currency': {
+                        'country': self.currency.country,
+                        'code': self.currency.code
+                    }
+                },
+                'narration': 'landlord',
+                'amount': 500,
+                'transaction_charge': 0,
+                'start_date': '2020-01-06',
+                'end_date': None,
+                'renewal_date': '10',
+                'renewal_count': 0,
+                'date_added': self.datetime_timezone_str(self.payment.date_added),
+                'date_modified': self.datetime_timezone_str(self.payment.date_modified)
+            }
+        )
+
+    def test_payment_serializer_edit(self):
+        # date occurred cannot be in the future
+        pays = PaymentSerializer(data={
+            'end_date': self.past_date(10).strftime('%Y-%m-%d')
+        }, instance=self.payment)
+        self.assertFalse(pays.is_valid())
+        self.assertListEqual(['end_date'], list(pays.errors.keys()))
+
+        # correct date occurred
+        dt = self.past_date(1)
+        pays = PaymentSerializer(data={
+            'end_date': dt.strftime('%Y-%m-%d')
+        }, instance=self.payment)
+        self.assertTrue(pays.is_valid())
+        pays.save()
+        self.assertEquals(self.payment.end_date, dt.date())
+
+        # a user id that does not exist
+        pays = PaymentSerializer(data={
+            'user_id': 2000
+        }, instance=self.payment)
+        self.assertFalse(pays.is_valid())
+        self.assertListEqual(['user_id'], list(pays.errors.keys()))
+
+        # a correct account ID
+        pays = PaymentSerializer(data={
+            'user_id': self.user_2.pk
+        }, instance=self.payment)
+        self.assertTrue(pays.is_valid())
+        pays.save()
+        self.assertEquals(self.payment.user.pk, self.user_2.pk)
