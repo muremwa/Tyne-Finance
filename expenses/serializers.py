@@ -71,9 +71,11 @@ class ExpenseSerializer(ValidateRecItems, ModelSerializerRequiredFalsifiable):
             validated_data.update({'account': self._cache.get('account')})
         return validated_data
 
+    # TODO apparently you dont need this
     def update(self, instance, validated_data):
         return super().update(instance, self.update_account_value(validated_data))
 
+    # TODO apparently you dont need this
     def create(self, validated_data):
         return super().create(self.update_account_value(validated_data))
 
