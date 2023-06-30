@@ -1,6 +1,5 @@
 from django.test import TestCase
 from django.db import IntegrityError
-from django.core.exceptions import ValidationError
 
 from core.models import User, Account, Currency, AccountType
 from expenses.models import UsageTag, Expense, RecurringPayment
@@ -48,7 +47,7 @@ class ExpenseModelsTestCase(TestCase):
 
     def test_recurring_payments(self):
         payment = RecurringPayment.objects.create(
-            account=self.account,
+            user=self.user,
             start_date='2022-03-02',
             renewal_date='12-31'
         )

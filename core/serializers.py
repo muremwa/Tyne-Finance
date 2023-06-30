@@ -29,7 +29,7 @@ class NoEditOrCreateModelSerializer(NoCreateModelSerializer, NoEditModelSerializ
     pass
 
 
-class ModelSerializerRequiredFalsifiable(Cache, ModelSerializer):
+class ModelSerializerRequiredFalsifiable(ModelSerializer):
     """
         If there is an instance, the fields are all marked as not required
         
@@ -59,7 +59,7 @@ class AccountTypeSerializer(NoEditOrCreateModelSerializer):
         fields = ('name', 'code')
 
 
-class UserSerializer(ModelSerializerRequiredFalsifiable):
+class UserSerializer(Cache, ModelSerializerRequiredFalsifiable):
     user_currency = CurrencySerializer(source='currency', required=False)
     currency = IntegerField(required=True, write_only=True)
 
