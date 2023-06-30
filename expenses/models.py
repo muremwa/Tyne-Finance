@@ -1,6 +1,6 @@
 from django.db import models
 
-from core.models import Account
+from core.models import Account, User
 from .validators import RenewalDateValidator
 
 
@@ -33,11 +33,11 @@ class Expense(models.Model):
 
 
 class RecurringPayment(models.Model):
+    user = models.ForeignKey(User, on_delete=models.RESTRICT)
     tags = models.ManyToManyField(UsageTag)
     narration = models.TextField()
     amount = models.IntegerField(default=0)
     transaction_charge = models.IntegerField(default=0)
-    account = models.ForeignKey(Account, on_delete=models.RESTRICT)
     start_date = models.DateField()
     end_date = models.DateField(blank=True, null=True)
     renewal_date = models.CharField(

@@ -69,7 +69,7 @@ class PaymentModelAdmin(ModelAdminWithoutAccountFormFieldExtras):
         ),
         (
             'Payment Finances', {
-                'fields': ['account', 'amount', 'transaction_charge']
+                'fields': ['user', 'amount', 'transaction_charge']
             }
         ),
         (
