@@ -12,7 +12,7 @@ from .models import UsageTag, Expense, RecurringPayment
 from .validators import RenewalDateValidator
 
 
-class ValidateRecItems:
+class ValidateRecItems(DateTimeFormatter):
     _cache = {}
 
     def master_validator(self, key: str, query_func: Callable, message: str):
@@ -40,6 +40,17 @@ class ValidateRecItems:
             f'No user account with ID {value}'
         )
         return value
+
+    def start_and_end_date_validations(self, validated_data: OrderedDict, instance):
+        if 'end_date' in validated_data:
+            e_date = validated_data.get('end_date')
+            s_date = instance.start_date if instance else validated_data.get('start_date')
+
+            # start date is greater than end date
+            if self.make_date(s_date) > self.make_date(e_date):
+                raise ValidationError({
+                    'end_date': translation.gettext_lazy('End date cannot be greater than end date')
+                })
 
 
 class UsageTagSerializer(NoEditOrCreateModelSerializer):
@@ -80,7 +91,7 @@ class ExpenseSerializer(ValidateRecItems, ModelSerializerRequiredFalsifiable):
         return super().create(self.update_account_value(validated_data))
 
 
-class PaymentSerializer(ValidateRecItems, DateTimeFormatter, ModelSerializerRequiredFalsifiable):
+class PaymentSerializer(ValidateRecItems, ModelSerializerRequiredFalsifiable):
     tags = UsageTagSerializer(many=True, read_only=True)
     user = UserSerializer(read_only=True)
     user_id = IntegerField(write_only=True)
@@ -97,15 +108,5 @@ class PaymentSerializer(ValidateRecItems, DateTimeFormatter, ModelSerializerRequ
 
     def validate(self, attrs):
         validated_data: OrderedDict = super().validate(attrs)
-
-        if 'end_date' in validated_data:
-            e_date = validated_data.get('end_date')
-            s_date = self.instance.start_date if self.instance else validated_data.get('start_date')
-
-            # start date is greater than end date
-            if self.make_date(s_date) > self.make_date(e_date):
-                raise ValidationError({
-                    'end_date': translation.gettext_lazy('End date cannot be greater than end date')
-                })
-
+        self.start_and_end_date_validations(validated_data, self.instance)
         return validated_data
