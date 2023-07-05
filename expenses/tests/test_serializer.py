@@ -174,7 +174,7 @@ class ExpenseTestCase(DateTimeFormatter, TestCase):
         )
 
     def test_payment_serializer_edit(self):
-        # date occurred cannot be in the future
+        # end date cannot be earlier than start date
         pays = PaymentSerializer(data={
             'end_date': self.past_date(10).strftime('%Y-%m-%d')
         }, instance=self.payment)
@@ -204,3 +204,38 @@ class ExpenseTestCase(DateTimeFormatter, TestCase):
         self.assertTrue(pays.is_valid())
         pays.save()
         self.assertEquals(self.payment.user.pk, self.user_2.pk)
+
+        # test renewal dates
+        pays = PaymentSerializer(data={
+            'renewal_date': '49'
+        }, instance=self.payment)
+        self.assertFalse(pays.is_valid())
+        self.assertListEqual(['renewal_date'], list(pays.errors.keys()))
+
+    def test_payment_serializer_create(self):
+        pays = PaymentSerializer(data={
+            'renewal_date': '05-06',
+            'narration': 'test',
+            'start_date': '2022-03-02',
+            'end_date': '2021-03-02',
+            'amount': 3000,
+            'user_id': self.user.pk
+        })
+        self.assertFalse(pays.is_valid())
+        self.assertListEqual(['end_date'], list(pays.errors.keys()))
+
+        new_pays = PaymentSerializer(data={
+            'renewal_date': '05-06',
+            'narration': 'test',
+            'start_date': '2022-03-02',
+            'end_date': '2024-03-02',
+            'amount': 3000,
+            'user_id': self.user.pk
+        })
+        self.assertTrue(new_pays.is_valid())
+        payment: RecurringPayment = new_pays.save()
+        self.assertIsNotNone(payment)
+        self.assertTrue(payment.is_annual)
+        self.assertEquals(payment.narration, 'test')
+        self.assertEquals(payment.amount, 3000)
+        self.assertTrue(self.user.recurringpayment_set.filter(pk=payment.pk).exists())
