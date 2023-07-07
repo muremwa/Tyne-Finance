@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import UsageTag, Expense, RecurringPayment
+from .models import UsageTag, Expense, RecurringPayment, Transaction
 
 
 @admin.register(UsageTag)
@@ -88,3 +88,31 @@ class PaymentModelAdmin(ModelAdminWithoutAccountFormFieldExtras):
     list_display = ['pk', 'start_date', 'renewal_count', 'is_annual', 'amount']
     list_display_links = ['pk', 'start_date']
     actions = None
+
+
+@admin.register(Transaction)
+class TransactionModelAdmin(ModelAdminWithoutAccountFormFieldExtras):
+    fieldsets = [
+        (
+            'Transaction Information', {
+                'fields': ['transaction_date', 'transaction_type', 'amount', 'account', 'automatic']
+            }
+        ),
+        (
+            'Transaction Item Details', {
+                'fields': ['transaction_for', 'transaction_for_id']
+            }
+        )
+    ]
+    readonly_fields = ('transaction_date', 'automatic')
+    list_display = ['transaction_date', 'transaction_type', 'amount', 'get_account_name', 'automatic']
+    list_filter = ['transaction_type', 'automatic']
+    actions = None
+
+    def get_account_name(self, obj: Transaction):
+        return f'{obj.account.account_number} • {obj.account.account_provider}'
+
+    get_account_name.short_description = 'Account'
+
+    def has_change_permission(self, request, obj=None):
+        return False
