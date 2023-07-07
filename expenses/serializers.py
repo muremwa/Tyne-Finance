@@ -3,12 +3,13 @@ from typing import Dict, OrderedDict, Callable
 from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.utils import timezone, translation
 from rest_framework.fields import IntegerField
+from rest_framework.serializers import ModelSerializer
 
 from core.serializers import NoEditOrCreateModelSerializer, ModelSerializerRequiredFalsifiable,\
-    AccountSerializer, UserSerializer
+    AccountSerializer, UserSerializer, NoEditModelSerializer
 from core.models import Account, User
 from core.utils import DateTimeFormatter
-from .models import UsageTag, Expense, RecurringPayment
+from .models import UsageTag, Expense, RecurringPayment, Transaction, TransactionActions
 from .validators import RenewalDateValidator
 
 
@@ -109,4 +110,27 @@ class PaymentSerializer(ValidateRecItems, ModelSerializerRequiredFalsifiable):
     def validate(self, attrs):
         validated_data: OrderedDict = super().validate(attrs)
         self.start_and_end_date_validations(validated_data, self.instance)
+        return validated_data
+
+
+class TransactionSerializer(ValidateRecItems, TransactionActions, NoEditModelSerializer, ModelSerializer):
+    account = AccountSerializer(read_only=True)
+    account_id = IntegerField(write_only=True)
+
+    class Meta:
+        model = Transaction
+        fields = '__all__'
+
+    def validate(self, attrs):
+        if self.instance:
+            raise ValidationError(translation.gettext_lazy('Cannot update transactions'))
+
+        validated_data: OrderedDict = super().validate(attrs)
+        self.transaction_cleaner(
+            self._cache.get('account'),
+            validated_data.get('transaction_type'),
+            validated_data.get('transaction_for'),
+            validated_data.get('transaction_for_id'),
+            False
+        )
         return validated_data

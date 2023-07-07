@@ -1,10 +1,11 @@
 from django.test import TestCase
+from django.core.exceptions import PermissionDenied
 
 from core.models import Currency, User, Account, AccountType
 from core.serializers import AccountTypeSerializer, UserSerializer
 from core.utils import DateTimeFormatter
-from expenses.models import UsageTag, Expense, RecurringPayment
-from expenses.serializers import UsageTagSerializer, ExpenseSerializer, PaymentSerializer
+from expenses.models import UsageTag, Expense, RecurringPayment, Transaction
+from expenses.serializers import UsageTagSerializer, ExpenseSerializer, PaymentSerializer, TransactionSerializer
 
 
 class ExpenseTestCase(DateTimeFormatter, TestCase):
@@ -239,3 +240,106 @@ class ExpenseTestCase(DateTimeFormatter, TestCase):
         self.assertEquals(payment.narration, 'test')
         self.assertEquals(payment.amount, 3000)
         self.assertTrue(self.user.recurringpayment_set.filter(pk=payment.pk).exists())
+
+    def test_transaction(self):
+        # Account doesn't exist
+        tr = TransactionSerializer(data={
+            'transaction_type': 'DB',
+            'transaction_for': 'EX',
+            'transaction_for_id': self.expense.pk,
+            'amount': 400,
+            'account_id': 9000000
+        })
+        self.assertFalse(tr.is_valid())
+        self.assertListEqual(['account_id'], list(tr.errors.keys()))
+
+        # Account is not active
+        tr = TransactionSerializer(data={
+            'transaction_type': 'DB',
+            'transaction_for': 'EX',
+            'transaction_for_id': self.expense.pk,
+            'amount': 400,
+            'account_id': self.account.pk
+        })
+        self.assertFalse(tr.is_valid())
+        self.assertListEqual(['account_id'], list(tr.errors.keys()))
+
+        # Make account active
+        self.account.active = True
+        self.account.save()
+
+        # Transaction items not allowed for CREDIT transactions
+        tr = TransactionSerializer(data={
+            'transaction_type': 'CD',
+            'transaction_for': 'EX',
+            'transaction_for_id': self.expense.pk,
+            'amount': 400,
+            'account_id': self.account.pk
+        })
+        self.assertFalse(tr.is_valid())
+        self.assertListEqual(['transaction_type'], list(tr.errors.keys()))
+
+        # transaction_for_id required if transaction_for is provided
+        tr = TransactionSerializer(data={
+            'transaction_type': 'DB',
+            'transaction_for': 'EX',
+            'amount': 400,
+            'account_id': self.account.pk
+        })
+        self.assertFalse(tr.is_valid())
+        self.assertListEqual(['transaction_for_id'], list(tr.errors.keys()))
+
+        # transaction_for_id for an item that does not exist
+        tr = TransactionSerializer(data={
+            'transaction_type': 'DB',
+            'transaction_for': 'RP',
+            'transaction_for_id': 898939,
+            'amount': 400,
+            'account_id': self.account.pk
+        })
+        self.assertFalse(tr.is_valid())
+        self.assertListEqual(['transaction_for_id'], list(tr.errors.keys()))
+
+        # transaction_for required if transaction_for_id is provided
+        tr = TransactionSerializer(data={
+            'transaction_type': 'DB',
+            'transaction_for_id': self.payment.pk,
+            'amount': 400,
+            'account_id': self.account.pk
+        })
+        self.assertFalse(tr.is_valid())
+        self.assertListEqual(['transaction_for'], list(tr.errors.keys()))
+
+        # good transaction
+        tr = TransactionSerializer(data={
+            'transaction_type': 'DB',
+            'transaction_for': 'EX',
+            'transaction_for_id': self.expense.pk,
+            'amount': 400,
+            'account_id': self.account.pk
+        })
+        tr.is_valid()
+        self.assertTrue(tr.is_valid())
+        self.assertIsNone(self.account.last_balance_update)
+        trans: Transaction = tr.save()
+        self.assertIsNotNone(trans)
+        self.assertTrue(isinstance(trans, Transaction))
+        self.assertTrue(self.account.transaction_set.filter(pk=trans.pk).exists())
+        self.account.refresh_from_db(fields=['last_balance_update', 'balance'])
+        self.assertIsNotNone(self.account.last_balance_update)
+        self.assertEquals(self.account.balance, -400)
+
+        # cannot add instance
+        tr = TransactionSerializer(data={
+            'transaction_type': 'DB',
+            'transaction_for': 'EX',
+            'transaction_for_id': self.expense.pk,
+            'amount': 8000,
+            'account_id': self.account.pk
+        }, instance=trans)
+        self.assertFalse(tr.is_valid())
+        self.assertListEqual(['non_field_errors'], list(tr.errors.keys()))
+        self.assertEquals(tr.errors.get('non_field_errors')[0], 'Cannot update transactions')
+
+        # error when you try to update using the serializer
+        self.assertRaises(PermissionDenied, tr.update, {}, {})
