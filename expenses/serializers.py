@@ -83,11 +83,11 @@ class ExpenseSerializer(ValidateRecItems, ModelSerializerRequiredFalsifiable):
             validated_data.update({'account': self._cache.get('account')})
         return validated_data
 
-    # TODO apparently you dont need this
+    # TODO apparently you don't need this
     def update(self, instance, validated_data):
         return super().update(instance, self.update_account_value(validated_data))
 
-    # TODO apparently you dont need this
+    # TODO apparently you don't need this
     def create(self, validated_data):
         return super().create(self.update_account_value(validated_data))
 
@@ -116,6 +116,7 @@ class PaymentSerializer(ValidateRecItems, ModelSerializerRequiredFalsifiable):
 class TransactionSerializer(ValidateRecItems, TransactionActions, NoEditModelSerializer, ModelSerializer):
     account = AccountSerializer(read_only=True)
     account_id = IntegerField(write_only=True)
+    item = None
 
     class Meta:
         model = Transaction
@@ -134,3 +135,19 @@ class TransactionSerializer(ValidateRecItems, TransactionActions, NoEditModelSer
             False
         )
         return validated_data
+
+    def to_representation(self, instance: Transaction):
+        representation = super().to_representation(instance)
+
+        if instance:
+            if item := instance.get_transaction_item():
+                if isinstance(item, RecurringPayment):
+                    representation.update({
+                        'item': PaymentSerializer(item).data
+                    })
+                elif isinstance(item, Expense):
+                    representation.update({
+                        'item': ExpenseSerializer(item).data
+                    })
+
+        return representation

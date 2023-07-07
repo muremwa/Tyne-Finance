@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.core.exceptions import PermissionDenied
 
 from core.models import Currency, User, Account, AccountType
-from core.serializers import AccountTypeSerializer, UserSerializer
+from core.serializers import AccountTypeSerializer, UserSerializer, AccountSerializer
 from core.utils import DateTimeFormatter
 from expenses.models import UsageTag, Expense, RecurringPayment, Transaction
 from expenses.serializers import UsageTagSerializer, ExpenseSerializer, PaymentSerializer, TransactionSerializer
@@ -34,6 +34,7 @@ class ExpenseTestCase(DateTimeFormatter, TestCase):
             user=self.user,
             account_number='02',
             account_provider='SAF',
+            active=True
         )
         self.tag = UsageTag.objects.create(title='Rent', code='RNT')
         self.expense = Expense.objects.create(
@@ -52,6 +53,18 @@ class ExpenseTestCase(DateTimeFormatter, TestCase):
             renewal_date='10',
         )
         self.payment.tags.add(self.tag)
+        self.transaction = Transaction.objects.create(
+            transaction_type='DB',
+            transaction_for='RP',
+            transaction_for_id=self.payment.pk,
+            amount=400,
+            account=self.account_2
+        )
+        self.transaction_2 = Transaction.objects.create(
+            transaction_type='CD',
+            amount=400,
+            account=self.account_2
+        )
 
     def test_usage_tag(self):
         self.assertDictEqual(
@@ -328,6 +341,52 @@ class ExpenseTestCase(DateTimeFormatter, TestCase):
         self.account.refresh_from_db(fields=['last_balance_update', 'balance'])
         self.assertIsNotNone(self.account.last_balance_update)
         self.assertEquals(self.account.balance, -400)
+
+        # transaction data
+        self.maxDiff = None
+        self.assertDictEqual(
+            TransactionSerializer(instance=trans).data,
+            {
+                'id': trans.pk,
+                'transaction_type': trans.transaction_type,
+                'transaction_for': trans.transaction_for,
+                'transaction_for_id': trans.transaction_for_id,
+                'transaction_date': self.datetime_timezone_str(trans.transaction_date),
+                'amount': trans.amount,
+                'account': AccountSerializer(trans.account).data,
+                'automatic': False,
+                'item': ExpenseSerializer(trans.get_transaction_item()).data
+            }
+        )
+
+        self.assertDictEqual(
+            TransactionSerializer(instance=self.transaction).data,
+            {
+                'id': self.transaction.pk,
+                'transaction_type': self.transaction.transaction_type,
+                'transaction_for': self.transaction.transaction_for,
+                'transaction_for_id': self.transaction.transaction_for_id,
+                'transaction_date': self.datetime_timezone_str(self.transaction.transaction_date),
+                'amount': self.transaction.amount,
+                'account': AccountSerializer(self.transaction.account).data,
+                'automatic': False,
+                'item': PaymentSerializer(self.transaction.get_transaction_item()).data
+            }
+        )
+
+        self.assertDictEqual(
+            TransactionSerializer(instance=self.transaction_2).data,
+            {
+                'id': self.transaction_2.pk,
+                'transaction_type': self.transaction_2.transaction_type,
+                'transaction_for': self.transaction_2.transaction_for,
+                'transaction_for_id': self.transaction_2.transaction_for_id,
+                'transaction_date': self.datetime_timezone_str(self.transaction_2.transaction_date),
+                'amount': self.transaction_2.amount,
+                'account': AccountSerializer(self.transaction_2.account).data,
+                'automatic': False,
+            }
+        )
 
         # cannot add instance
         tr = TransactionSerializer(data={
