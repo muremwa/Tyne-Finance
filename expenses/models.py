@@ -63,7 +63,7 @@ class RecurringPayment(models.Model):
         return f'Payment({"annual" if self.is_annual else "monthly"} • {self.amount + self.transaction_charge})'
 
 
-class TransactionCleaner:
+class TransactionActions:
 
     @staticmethod
     def transaction_cleaner(account: Account, transaction_type: str, transaction_for: str, for_id: int, is_model=True):
@@ -108,8 +108,34 @@ class TransactionCleaner:
                     'transaction_for': _('Required')
                 })
 
+    @staticmethod
+    def balance_update_on_create(account: Account, amount: int, transaction_type: str):
+        """
+            Once a transaction is created you need to update the balance of the account
+            and the last_balance_update time
+        """
+        if transaction_type == 'DB':
+            account.balance -= amount
+        else:
+            account.balance += amount
+        account.last_balance_update = timezone.now()
+        account.save()
 
-class Transaction(TransactionCleaner, models.Model):
+    @staticmethod
+    def balance_update_on_delete(account: Account, amount: int, transaction_type: str):
+        """
+            Once a transaction is deleted you need to update the balance of the account
+            and the last_balance_update time
+        """
+        if transaction_type == 'DB':
+            account.balance += amount
+        else:
+            account.balance -= amount
+        account.last_balance_update = timezone.now()
+        account.save()
+
+
+class Transaction(TransactionActions, models.Model):
     """
         debit means you'll remove money from the account, credit vice versa
     """
@@ -151,21 +177,9 @@ class Transaction(TransactionCleaner, models.Model):
             raise PermissionDenied('Cannot update a transaction')
 
         super().save(force_insert, force_update, using, update_fields)
-
-        # reflect status on account
-        if self.transaction_type == 'DB':
-            self.account.balance -= self.amount
-        else:
-            self.account.balance += self.amount
-        self.account.last_balance_update = timezone.now()
-        self.account.save()
+        self.balance_update_on_create(self.account, self.amount, self.transaction_type)
         return self
 
     def delete(self, using=None, keep_parents=False):
-        if self.transaction_type == 'DB':
-            self.account.balance += self.amount
-        else:
-            self.account.balance -= self.amount
-        self.account.last_balance_update = timezone.now()
-        self.account.save()
+        self.balance_update_on_delete(self.account, self.amount, self.transaction_type)
         return super().delete(using=None, keep_parents=False)
