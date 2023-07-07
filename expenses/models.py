@@ -63,7 +63,53 @@ class RecurringPayment(models.Model):
         return f'Payment({"annual" if self.is_annual else "monthly"} • {self.amount + self.transaction_charge})'
 
 
-class Transaction(models.Model):
+class TransactionCleaner:
+
+    @staticmethod
+    def transaction_cleaner(account: Account, transaction_type: str, transaction_for: str, for_id: int, is_model=True):
+        """
+            Clean a transaction
+
+            - Account must be active
+            - Credit transactions cannot have expense or payments as they are the opposite of a cost
+            - Transaction for and id must exist together, cannot have one without the other
+            - for ID must point to an existing item
+
+        """
+        if not account.active:
+            raise ValidationError({
+                'account' if is_model else 'account_id': _('The selected account is not active')
+            })
+
+        if transaction_type == 'CD':
+            if transaction_for or for_id is not None:
+                item_type = 'an Expense' if transaction_for == "EX" else 'a Payment'
+                raise ValidationError({
+                    'transaction_type': _(f'Credit transactions cannot have {item_type}')
+                })
+
+        if transaction_for:
+            if for_id is None:
+                raise ValidationError({
+                    'transaction_for_id': _('ID for the transaction item needed')
+                })
+            else:
+                klass = Expense if transaction_for == 'EX' else RecurringPayment
+                try:
+                    klass.objects.get(pk=for_id)
+                except ObjectDoesNotExist:
+                    item_type = 'Expense' if transaction_for == "EX" else 'Payment'
+                    raise ValidationError({
+                        'transaction_for_id': _(f'{item_type} with ID {for_id} does not exist')
+                    })
+        else:
+            if for_id is not None:
+                raise ValidationError({
+                    'transaction_for': _('Required')
+                })
+
+
+class Transaction(TransactionCleaner, models.Model):
     """
         debit means you'll remove money from the account, credit vice versa
     """
@@ -97,37 +143,7 @@ class Transaction(models.Model):
         return item
 
     def clean(self):
-        if not self.account.active:
-            raise ValidationError({
-                'account': _('The selected account is not active')
-            })
-
-        if self.transaction_type == 'CD':
-            if self.transaction_for or self.transaction_for_id is not None:
-                item_type = 'an Expense' if self.transaction_for == "EX" else 'a Payment'
-                raise ValidationError({
-                    'transaction_type': _(f'Credit transactions cannot have {item_type}')
-                })
-
-        if self.transaction_for:
-            if self.transaction_for_id is None:
-                raise ValidationError({
-                    'transaction_for_id': _('ID for the transaction item needed')
-                })
-            else:
-                klass = Expense if self.transaction_for == 'EX' else RecurringPayment
-                try:
-                    klass.objects.get(pk=self.transaction_for_id)
-                except ObjectDoesNotExist:
-                    item_type = 'Expense' if self.transaction_for == "EX" else 'Payment'
-                    raise ValidationError({
-                        'transaction_for_id': _(f'{item_type} with ID {self.transaction_for_id} does not exist')
-                    })
-        else:
-            if self.transaction_for_id is not None:
-                raise ValidationError({
-                    'transaction_for': _('Required')
-                })
+        self.transaction_cleaner(self.account, self.transaction_type, self.transaction_for, self.transaction_for_id)
         return super().clean()
 
     def save(self, force_insert=False, force_update=False, using=None, update_fields=None):

@@ -105,7 +105,7 @@ class TransactionModelAdmin(ModelAdminWithoutAccountFormFieldExtras):
         )
     ]
     readonly_fields = ('transaction_date', 'automatic')
-    list_display = ['transaction_date', 'transaction_type', 'amount', 'get_account_name', 'automatic']
+    list_display = ['id', 'transaction_date', 'transaction_type', 'amount', 'get_account_name', 'automatic']
     list_filter = ['transaction_type', 'automatic']
     actions = None
 
