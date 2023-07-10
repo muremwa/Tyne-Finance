@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from rest_framework.authtoken.models import Token
 
 
 class Currency(models.Model):
@@ -20,6 +21,13 @@ class Currency(models.Model):
 
 class User(AbstractUser):
     currency = models.ForeignKey(Currency, on_delete=models.RESTRICT, null=True)
+
+    def get_user_auth_token(self):
+        token = None
+        if self.pk:
+            tokens = Token.objects.filter(user=self.pk)
+            token = tokens[0] if tokens.exists() else Token.objects.create(user=self)
+        return token
 
     def __repr__(self):
         return f'<CoreUser: {self.username}>'
