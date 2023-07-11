@@ -69,7 +69,7 @@ def sign_up(request):
        provide the fields; "username", "email_address", "password", "currency", "first_name", "last_name"
        "username", "password", "currency" - required
     """
-    user_ser = UserSerializer(data=request.POST)
+    user_ser = UserSerializer(data=request.data)
 
     if user_ser.is_valid():
         user: User = user_ser.save()
