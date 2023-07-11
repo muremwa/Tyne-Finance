@@ -56,6 +56,21 @@ class CoreViewsTestCaseNoAuth(TestCase):
         self.user.refresh_from_db(fields=['last_login'])
         self.assertIsNotNone(self.user.last_login)
 
+    def test_sign_up(self):
+        req = self.client.post('/core/auth/sign-up/')
+        self.assertEquals(400, req.status_code)
+        self.assertFalse(req.json().get('success'))
+        self.assertTrue('errors' in req.json())
+
+        req = self.client.post(
+            '/core/auth/sign-up/',
+            {'username': 'jim', 'password': 'test@123', 'currency': self.currency.pk}
+        )
+        self.assertEquals(201, req.status_code)
+        self.assertTrue(req.json().get('success'))
+        self.assertTrue('user' in req.json())
+        self.assertTrue('token' in req.json())
+
 
 class CoreViewsTestCase(CoreViewsTestCaseNoAuth):
 

@@ -59,3 +59,30 @@ def refresh_auth_token(request):
     return JsonResponse({
         'token': Token.objects.create(user=request.user).key
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST', 'GET'])
+@permission_classes([])
+def sign_up(request):
+    """
+       Register a user
+       provide the fields; "username", "email_address", "password", "currency", "first_name", "last_name"
+       "username", "password", "currency" - required
+    """
+    user_ser = UserSerializer(data=request.POST)
+
+    if user_ser.is_valid():
+        user: User = user_ser.save()
+        user.last_login = timezone.now()
+        user.save()
+        return JsonResponse({
+            'success': True,
+            'user': UserSerializer(user).data,
+            'token': user.get_user_auth_token().key
+        }, status=status.HTTP_201_CREATED)
+
+    else:
+        return JsonResponse({
+            'success': False,
+            'errors': user_ser.errors
+        }, status=status.HTTP_400_BAD_REQUEST)

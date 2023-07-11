@@ -15,4 +15,7 @@ urlpatterns = [
 
     # auth/refresh-token/
     path('auth/refresh-token/', auth.refresh_auth_token, name='refresh-token'),
+
+    # auth/sign-up/
+    path('auth/sign-up/', auth.sign_up, name='sign-up'),
 ]
