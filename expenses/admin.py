@@ -43,7 +43,7 @@ class ExpenseModelAdmin(ModelAdminWithoutAccountFormFieldExtras):
         ),
         (
             'Expense Finances', {
-                'fields': ['account', 'amount']
+                'fields': ['amount']
             }
         ),
         (
@@ -64,12 +64,12 @@ class PaymentModelAdmin(ModelAdminWithoutAccountFormFieldExtras):
     fieldsets = [
         (
             'Payment Info', {
-                'fields': ['narration', 'tags', 'renewal_count']
+                'fields': ['narration', 'tags', 'renewal_count', 'user']
             }
         ),
         (
             'Payment Finances', {
-                'fields': ['user', 'amount']
+                'fields': ['amount']
             }
         ),
         (
