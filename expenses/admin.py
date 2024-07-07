@@ -38,12 +38,12 @@ class ExpenseModelAdmin(ModelAdminWithoutAccountFormFieldExtras):
     fieldsets = [
         (
             'Expense Info', {
-                'fields': ['narration', 'tags', 'planned']
+                'fields': ['narration', 'tags', 'planned', 'user']
             }
         ),
         (
             'Expense Finances', {
-                'fields': ['account', 'amount', 'transaction_charge']
+                'fields': ['account', 'amount']
             }
         ),
         (
@@ -54,7 +54,7 @@ class ExpenseModelAdmin(ModelAdminWithoutAccountFormFieldExtras):
     ]
     readonly_fields = ['date_created']
     list_filter = ['planned', 'tags']
-    list_display = ['pk', 'date_occurred', 'planned', 'amount', 'transaction_charge']
+    list_display = ['pk', 'date_occurred', 'planned', 'amount', 'user']
     list_display_links = ['date_occurred', 'pk']
     actions = None
 
@@ -69,7 +69,7 @@ class PaymentModelAdmin(ModelAdminWithoutAccountFormFieldExtras):
         ),
         (
             'Payment Finances', {
-                'fields': ['user', 'amount', 'transaction_charge']
+                'fields': ['user', 'amount']
             }
         ),
         (
@@ -95,7 +95,7 @@ class TransactionModelAdmin(ModelAdminWithoutAccountFormFieldExtras):
     fieldsets = [
         (
             'Transaction Information', {
-                'fields': ['transaction_date', 'transaction_type', 'amount', 'account', 'automatic']
+                'fields': ['transaction_date', 'transaction_type', 'amount', 'transaction_charge', 'account', 'automatic']
             }
         ),
         (
@@ -105,7 +105,7 @@ class TransactionModelAdmin(ModelAdminWithoutAccountFormFieldExtras):
         )
     ]
     readonly_fields = ('transaction_date', 'automatic')
-    list_display = ['id', 'transaction_date', 'transaction_type', 'amount', 'get_account_name', 'automatic']
+    list_display = ['id', 'transaction_date', 'transaction_type', 'amount', 'transaction_charge', 'get_account_name', 'automatic']
     list_filter = ['transaction_type', 'automatic']
     actions = None
 

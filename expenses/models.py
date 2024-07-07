@@ -23,16 +23,16 @@ class Expense(models.Model):
     planned = models.BooleanField(default=False)
     narration = models.TextField()
     amount = models.IntegerField(default=0)
-    transaction_charge = models.IntegerField(default=0)
-    account = models.ForeignKey(Account, on_delete=models.RESTRICT)
+    user = models.ForeignKey(User, on_delete=models.RESTRICT, null=True, blank=False)
     date_created = models.DateTimeField(auto_now_add=True)
+    date_modified = models.DateTimeField(auto_now=True)
     date_occurred = models.DateField()
 
     def __repr__(self):
-        return f'<Expense: {self.date_occurred} ({self.amount + self.transaction_charge})>'
+        return f'<Expense: {self.date_occurred} ({self.amount})>'
 
     def __str__(self):
-        return f'Expense({self.date_occurred} • {self.amount + self.transaction_charge})'
+        return f'Expense({self.date_occurred} • {self.amount})'
 
 
 class RecurringPayment(models.Model):
@@ -40,7 +40,6 @@ class RecurringPayment(models.Model):
     tags = models.ManyToManyField(UsageTag)
     narration = models.TextField()
     amount = models.IntegerField(default=0)
-    transaction_charge = models.IntegerField(default=0)
     start_date = models.DateField()
     end_date = models.DateField(blank=True, null=True)
     renewal_date = models.CharField(
@@ -57,10 +56,10 @@ class RecurringPayment(models.Model):
         return '-' in self.renewal_date
 
     def __repr__(self):
-        return f'<Payment: {"annual" if self.is_annual else "monthly"} ({self.amount + self.transaction_charge})>'
+        return f'<Payment: {"annual" if self.is_annual else "monthly"} ({self.amount})>'
 
     def __str__(self):
-        return f'Payment({"annual" if self.is_annual else "monthly"} • {self.amount + self.transaction_charge})'
+        return f'Payment({"annual" if self.is_annual else "monthly"} • {self.amount})'
 
 
 class TransactionActions:
@@ -119,6 +118,7 @@ class Transaction(TransactionActions, models.Model):
     transaction_type = models.CharField(max_length=2, choices=TRANSACTION_TYPE_CHOICES)
     account = models.ForeignKey(Account, on_delete=models.PROTECT)
     amount = models.IntegerField()
+    transaction_charge = models.IntegerField(default=0)
     automatic = models.BooleanField(default=False)
     transaction_date = models.DateTimeField(auto_now_add=True)
     transaction_for = models.CharField(max_length=2, choices=TRANSACTION_FOR_CHOICES, null=True, blank=True)
